@@ -1,0 +1,2 @@
+# baldheadbot
+Discord Bot Prototype
