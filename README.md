@@ -76,3 +76,9 @@
 
 ### 4. `requirements.txt` 파일 생성
 프로젝트에 필요한 라이브러리 목록입니다. 아래 내용을 `requirements.txt` 파일에 저장하세요.
+    ```discord.py>=2.3.2
+    python-dotenv>=1.0.0
+    yt-dlp>=2023.12.30
+    gTTS>=2.5.1
+    PyNaCl>=1.5.0
+    ```
