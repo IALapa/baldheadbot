@@ -129,27 +129,27 @@ python discord_bot/bot.py
 | `/이모지 <이름>` | 봇이 속한 다른 서버의 이모지를 검색하여 보여줍니다. |
 
 ## 🏛️ 프로젝트 구조 (Project Structure)
-baldheadbot/
-├── .venv/
-├── discord_bot/
-│   ├── bot.py
-│   ├── cogs/
-│   │   ├── init.py
-│   │   ├── general_commands.py
-│   │   ├── admin_commands.py
-│   │   ├── music.py
-│   │   ├── tts_commands.py
-│   │   └── emoji_commands.py
-│   ├── core/
-│   │   ├── init.py
-│   │   ├── check.py
-│   │   ├── embed.py
-│   │   └── exceptions.py
-│   └── data/
-│       └── config.json
-├── .env
-├── .gitignore
-└── requirements.txt
+    baldheadbot/
+    ├── .venv/
+    ├── discord_bot/
+    │   ├── bot.py
+    │   ├── cogs/
+    │   │   ├── init.py
+    │   │   ├── general_commands.py
+    │   │   ├── admin_commands.py
+    │   │   ├── music.py
+    │   │   ├── tts_commands.py
+    │   │   └── emoji_commands.py
+    │   ├── core/
+    │   │   ├── init.py
+    │   │   ├── check.py
+    │   │   ├── embed.py
+    │   │   └── exceptions.py
+    │   └── data/
+    │       └── config.json
+    ├── .env
+    ├── .gitignore
+    └── requirements.txt
 
 
 ## 📄 라이선스 (License)
