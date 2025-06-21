@@ -9,7 +9,6 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
 
-#-- 수정된 부분: 'check' -> 'check' 오타 수정
 from core import check
 
 # 경로 설정
