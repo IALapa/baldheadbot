@@ -188,7 +188,7 @@ class Music(commands.Cog):
         if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
             await self.play_next_song(ctx)
 
-    @commands.hybrid_command(name="join", help="음성 채널에 봇을 연결합니다.")
+    @commands.hybrid_command(name="참가", help="음성 채널에 봇을 연결합니다.")
     async def join(self, ctx):
         if not ctx.author.voice:
             return await ctx.send(embed=self.bot.embeds.error("오류", "먼저 음성 채널에 접속해주세요."))
@@ -200,7 +200,7 @@ class Music(commands.Cog):
             await channel.connect()
         await ctx.send(embed=self.bot.embeds.success("연결 성공", f"{channel.name} 채널에 연결되었습니다."))
 
-    @commands.hybrid_command(name="leave", help="음성 채널에서 봇을 내보냅니다.")
+    @commands.hybrid_command(name="빠빠이", help="음성 채널에서 봇을 내보냅니다.")
     @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
     async def leave(self, ctx):
         self.queue = []
@@ -208,7 +208,7 @@ class Music(commands.Cog):
         await ctx.send(embed=self.bot.embeds.info("연결 종료", "음성 채널에서 나갔습니다."))
 
     # --- play 명령어: 자동완성 기능 제거 후 간소화 ---
-    @commands.hybrid_command(name="play", description="노래를 추가하거나, 대기열의 특정 노래를 재생합니다.")
+    @commands.hybrid_command(name="재생", description="노래를 추가하거나, 대기열의 특정 노래를 재생합니다.")
     async def play(self, ctx: commands.Context, *, search: str):
         """
         검색어 입력 시: 첫 결과를 대기열에 추가합니다.
@@ -410,7 +410,7 @@ class Music(commands.Cog):
         if self.queue:
             asyncio.run_coroutine_threadsafe(self.play_next_song(ctx), self.bot.loop)
 
-    @commands.hybrid_command(name="volume", help="볼륨을 조절합니다. (0~100)")
+    @commands.hybrid_command(name="볼륨", help="볼륨을 조절합니다. (0~100)")
     @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
     async def volume(self, ctx, volume: int):
         # 봇이 연결은 되어있지만, 소스(재생 파일)가 없는 경우를 확인
@@ -424,7 +424,7 @@ class Music(commands.Cog):
         await ctx.send(embed=self.bot.embeds.info("볼륨 조절", f"🔊 볼륨을 {volume}%로 조절했습니다."))
 
     # pause 명령어는 '재생 중'일 때만 일시정지하는 것이 맞으므로, is_bot_playing()을 유지합니다.
-    @commands.hybrid_command(name="pause", help="노래를 일시정지합니다.")
+    @commands.hybrid_command(name="일시정지", help="노래를 일시정지합니다.")
     @check.is_bot_playing() 
     async def pause(self, ctx):
         if ctx.voice_client.is_paused():
@@ -432,7 +432,7 @@ class Music(commands.Cog):
         ctx.voice_client.pause()
         await ctx.send(embed=self.bot.embeds.info("일시정지", "⏸️ 노래를 일시정지했습니다."))
 
-    @commands.hybrid_command(name="resume", help="노래를 다시 재생합니다.")
+    @commands.hybrid_command(name="계속", help="노래를 다시 재생합니다.")
     @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
     async def resume(self, ctx):
         # 명령어 내부에서 is_paused() 상태를 직접 확인
@@ -440,15 +440,8 @@ class Music(commands.Cog):
             return await ctx.send(embed=self.bot.embeds.error("오류", "일시정지된 노래가 없습니다."))
         ctx.voice_client.resume()
         await ctx.send(embed=self.bot.embeds.info("다시 재생", "▶️ 노래를 다시 재생합니다."))
-
-    @commands.hybrid_command(name="stop", help="노래를 중지하고 대기열을 비웁니다.")
-    @check.is_bot_playing() # --- @checks 데코레이터로 중복 코드를 제거합니다. ---
-    async def stop(self, ctx):
-        self.queue = []
-        ctx.voice_client.stop()
-        await ctx.send(embed=self.bot.embeds.info("재생 중지", "⏹️ 노래를 중지하고 대기열을 초기화했습니다."))
             
-    @commands.hybrid_command(name="stop", help="노래를 중지하고 대기열을 비웁니다.")
+    @commands.hybrid_command(name="중지", help="노래를 중지하고 대기열을 비웁니다.")
     @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
     async def stop(self, ctx):
         self.queue = []
@@ -457,14 +450,14 @@ class Music(commands.Cog):
         await ctx.send(embed=self.bot.embed_s.info("재생 중지", "⏹️ 노래를 중지하고 대기열을 초기화했습니다."))
 
     # skip 명령어는 '재생 중'인 곡을 건너뛰는 것이므로, is_bot_playing()을 유지합니다.
-    @commands.hybrid_command(name="skip", help="현재 노래를 건너뜁니다.")
+    @commands.hybrid_command(name="스킵", help="현재 노래를 건너뜁니다.")
     @check.is_bot_playing() 
     async def skip(self, ctx):
         ctx.voice_client.stop()
         await ctx.send(embed=self.bot.embeds.info("건너뛰기", "⏭️ 현재 곡을 건너뛰었습니다."))
             
     
-    @commands.hybrid_command(name="queue", help="재생 대기열을 보여줍니다.")
+    @commands.hybrid_command(name="대기열", help="재생 대기열을 보여줍니다.")
     async def queue_info(self, ctx: commands.Context):
         """현재 재생 중인 노래와 재생 대기열을 번호와 함께 보여줍니다."""
         if not ctx.voice_client or not (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()) and not self.queue:
