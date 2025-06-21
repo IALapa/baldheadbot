@@ -18,14 +18,14 @@ ydl_opts = {
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'opus', # 최종 코덱을 opus로 지정
-        'preferredquality': '192', # 비트레이트 품질
+        'preferredquality': '128', # 비트레이트 품질
     }],
     # ...
 }
 
 # FFmpeg 설정
 ffmpeg_opts = {
-    'options': '-vn -b:a 192k', # 오디오 비트레이트를 96kbps로 고정 (선택 사항)
+    'options': '-vn -b:a 128k', # 오디오 비트레이트를 128kbps로 고정 (선택 사항)
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 20M -analyzeduration 15M',
 }
 
