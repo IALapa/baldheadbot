@@ -23,6 +23,11 @@ ydl_opts = {
     # ...
 }
 
+# --- 라이브 스트림용 ydl_opts ---
+# noplaylist 옵션만 제거한 버전
+ydl_opts_live = ydl_opts.copy()
+ydl_opts_live['noplaylist'] = False
+
 # FFmpeg 설정
 ffmpeg_opts = {
     'options': '-vn -b:a 128k', # 오디오 비트레이트를 128kbps로 고정 (선택 사항)
@@ -168,7 +173,19 @@ class Music(commands.Cog):
 
         try:
             loop = asyncio.get_running_loop()
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            
+            # --- 1단계: 라이브 스트림 여부를 확인하기 위한 빠른 정보 추출 ---
+            with yt_dlp.YoutubeDL({'quiet': True, 'default_search': 'auto'}) as ydl:
+                pre_info_task = functools.partial(ydl.extract_info, search_term, download=False, process=False)
+                pre_info = await loop.run_in_executor(None, pre_info_task)
+                if 'entries' in pre_info:
+                    pre_info = pre_info['entries'][0]
+            
+            is_live = pre_info.get('is_live', False)
+            
+            # --- 2단계: 라이브 여부에 따라 올바른 옵션으로 상세 정보 추출 ---
+            options = ydl_opts_live if is_live else ydl_opts
+            with yt_dlp.YoutubeDL(options) as ydl:
                 blocking_task = functools.partial(ydl.extract_info, search_term, download=False)
                 info = await loop.run_in_executor(None, blocking_task)
             
@@ -180,8 +197,11 @@ class Music(commands.Cog):
             embed = self.bot.embeds.error("정보 추출 실패", "노래의 상세 정보를 가져오는데 실패했습니다.")
             return await send_method(embed=embed, **send_kwargs)
 
-        song = {'source': info['webpage_url'], 'title': title, 'channel': ctx.channel, 'requester': ctx.author}
+        # webpage_url이 없는 경우를 대비하여 id로 URL 재구성
+        source_url = info.get('webpage_url') or f"https://www.youtube.com/watch?v={info.get('id')}"
+        song = {'source': source_url, 'title': title, 'channel': ctx.channel, 'requester': ctx.author, 'is_live': is_live}
         self.queue.append(song)
+        
         embed = self.bot.embeds.success("대기열 추가", f"'{title}'을(를) 대기열에 추가했습니다.")
         await send_method(embed=embed, **send_kwargs)
 
@@ -393,7 +413,7 @@ class Music(commands.Cog):
                     ctx.voice_client.play(volume_controlled_source, after=lambda e: self.on_song_end(ctx, e))
                     # ---------------------------------------------------------
 
-                    embed = self.bot.embed_generator.info("재생 시작", f"▶️ 이제 '{title}'을(를) 재생합니다.")
+                    embed = self.bot.embeds.info("재생 시작", f"▶️ 이제 '{title}'을(를) 재생합니다.")
                     embed.set_footer(text=f"요청: {requester.display_name}", icon_url=requester.avatar)
                     await channel.send(embed=embed)
 
@@ -410,18 +430,58 @@ class Music(commands.Cog):
         if self.queue:
             asyncio.run_coroutine_threadsafe(self.play_next_song(ctx), self.bot.loop)
 
-    @commands.hybrid_command(name="볼륨", help="볼륨을 조절합니다. (0~100)")
-    @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
-    async def volume(self, ctx, volume: int):
-        # 봇이 연결은 되어있지만, 소스(재생 파일)가 없는 경우를 확인
-        if not ctx.voice_client.source:
-             return await ctx.send(embed=self.bot.embeds.error("오류", "현재 재생 중인 노래가 없습니다."))
+    @commands.hybrid_group(name="볼륨", aliases=["volume"], description="봇의 볼륨 관련 설정을 관리합니다.")
+    async def volume(self, ctx: commands.Context):
+        """볼륨 명령어 그룹입니다. 서브 커맨드가 없으면 현재 상태를 보여줍니다."""
+        if ctx.invoked_subcommand is None:
+            await self.status(ctx)
 
-        if not (0 <= volume <= 100):
-            return await ctx.send(embed=self.bot.embeds.error("입력 오류", "볼륨은 0에서 100 사이의 값으로 설정해주세요."))
+    @volume.command(name="설정", description="개인별 볼륨 배율을 조절합니다 (기본값 100).")
+    async def volume_set(self, ctx: commands.Context, 배율: commands.Range[int, 0, 200]):
+        """기본 볼륨에 대한 배율을 조절합니다. (0~200%)"""
+        guild_id = ctx.guild.id
+        multiplier = 배율 / 100.0
+        self.user_volume_multipliers[guild_id] = multiplier
         
-        ctx.voice_client.source.volume = volume / 100
-        await ctx.send(embed=self.bot.embeds.info("볼륨 조절", f"🔊 볼륨을 {volume}%로 조절했습니다."))
+        # 현재 재생 중인 노래가 있다면, 새 배율을 즉시 적용
+        if ctx.voice_client and ctx.voice_client.source:
+            base_volume = self.base_volumes.get(guild_id, self.DEFAULT_BASE_VOLUME)
+            final_volume = base_volume * multiplier
+            ctx.voice_client.source.volume = final_volume
+            
+        await ctx.send(embed=self.bot.embeds.success("배율 설정 완료", f"🔊 개인 볼륨 배율을 **{배율}%**로 조절했습니다."), ephemeral=True)
+
+    @volume.command(name="기본", description="이 서버의 기본 볼륨을 조절합니다 (0~100).")
+    @commands.has_permissions(manage_guild=True) # '서버 관리' 권한이 있는 사람만 사용 가능
+    async def volume_base(self, ctx: commands.Context, 기본볼륨: commands.Range[int, 0, 100]):
+        """서버의 기본 시작 볼륨을 조절합니다. 모든 유저에게 적용됩니다."""
+        guild_id = ctx.guild.id
+        base_volume = 기본볼륨 / 100.0
+        self.base_volumes[guild_id] = base_volume
+        
+        # 현재 재생 중인 노래가 있다면, 새 기본 볼륨을 즉시 적용
+        if ctx.voice_client and ctx.voice_client.source:
+            user_multiplier = self.user_volume_multipliers.get(guild_id, 1.0)
+            final_volume = base_volume * user_multiplier
+            ctx.voice_client.source.volume = final_volume
+            
+        await ctx.send(embed=self.bot.embeds.success("기본 볼륨 설정 완료", f"🔊 이 서버의 기본 볼륨을 **{기본볼륨}%**로 조절했습니다."))
+
+    @volume.command(name="상태", description="현재 볼륨 설정을 확인합니다.")
+    async def status(self, ctx: commands.Context):
+        """현재 서버의 기본 볼륨과 개인 배율, 최종 볼륨을 보여줍니다."""
+        guild_id = ctx.guild.id
+        base_volume = self.base_volumes.get(guild_id, self.DEFAULT_BASE_VOLUME)
+        user_multiplier = self.user_volume_multipliers.get(guild_id, 1.0)
+        final_volume = base_volume * user_multiplier
+        
+        description = (
+            f"**기본 볼륨:** `{int(base_volume * 100)}%`\n"
+            f"**개인 배율:** `{int(user_multiplier * 100)}%`\n"
+            f"--------------------\n"
+            f"**최종 적용 볼륨:** `{int(final_volume * 100)}%`"
+        )
+        await ctx.send(embed=self.bot.embeds.info("현재 볼륨 설정", description))
 
     # pause 명령어는 '재생 중'일 때만 일시정지하는 것이 맞으므로, is_bot_playing()을 유지합니다.
     @commands.hybrid_command(name="일시정지", help="노래를 일시정지합니다.")

@@ -1,0 +1,24 @@
+my_discord_bot/
+├── .vscode/
+│   └── settings.json     # VS Code 설정 파일 (선택 사항)
+├── .venv/                 # 가상 환경 (Virtual Environment)
+├── my_discord_bot/       # 실제 봇 코드 디렉토리
+│   ├── bot.py             # 봇의 메인 실행 파일
+│   ├── cogs/              # 명령어 그룹 (Cogs)을 모아두는 디렉토리
+│   │   ├── __init__.py    # cogs 디렉토리를 파이썬 패키지로 만듭니다.
+│   │   ├── general_commands.py  # 일반 명령어 Cog 
+│   │   └── admin_commands.py    # 관리자 명령어 Cog 
+│   │   └── music.py    # 음악재생 관련 명령어 Cog 
+│   │   └── emoji    # 이모지 관련 명령어 Cog 
+│   │   └── tts_commands.py    # tts 관련 명령어 Cog 
+│   ├── core/              # 봇의 핵심 로직, 유틸리티 함수 등
+│   │   ├── __init__.py
+│   │   └── checks.py      # 커스텀 명령어 체크 함수 등
+│   │   └── embed.py     # 임베드 메시지 출력 모듈
+│   │   └── exceptions.py    # 오류 및 예외처리 관련 모듈
+│   └── data/              # (선택 사항) 설정 파일, 데이터베이스 파일 등
+│       └── config.json    # 봇 설정 (토큰 제외, 접두사 등)
+├── .gitignore             # Git에서 무시할 파일/디렉토리 목록
+├── .env                    # 디스코드 봇 토큰
+├── requirements.txt       # 필요한 파이썬 라이브러리 목록
+└── README.md              # 프로젝트 설명 파일
