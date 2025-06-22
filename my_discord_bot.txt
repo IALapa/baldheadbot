@@ -22,3 +22,4 @@ my_discord_bot/
 ├── .env                    # 디스코드 봇 토큰
 ├── requirements.txt       # 필요한 파이썬 라이브러리 목록
 └── README.md              # 프로젝트 설명 파일
+

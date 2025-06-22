@@ -88,4 +88,3 @@ class AdminCommands(commands.Cog):
 async def setup(bot: commands.Bot):
     """이 Cog를 봇에 추가하기 위해 discord.py가 호출하는 함수입니다."""
     await bot.add_cog(AdminCommands(bot))
-    print("AdminCommands Cog가 로드되었습니다.")
