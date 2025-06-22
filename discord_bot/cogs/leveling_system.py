@@ -200,7 +200,7 @@ class LevelingSystem(commands.Cog):
         else:
             data["last_checkin_date"] = today_str; exp_to_grant = 100
             await self.grant_exp(user, exp_to_grant, channel=ctx.channel)
-            await ctx.send(embed=self.bot.embeds.success("출석 완료!", f"{exp_to_grant} 경험치를 획득했습니다!"), ephemeral=True)
+            await ctx.send(embed=self.bot.embeds.success("출석 완료!", f"{exp_to_grant} 경험치를 획득했습니다!"), ephemeral=False)
 
     # --- 관리자용 명령어 (서버별로 적용되도록 수정) ---
     @commands.hybrid_group(name="조정", description="사용자의 레벨/경험치를 조정합니다. (관리자 전용)")
