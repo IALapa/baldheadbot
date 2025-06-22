@@ -62,18 +62,27 @@ class AdminCommands(commands.Cog):
 
     @commands.hybrid_command(name="청소", description="채팅 채널의 메시지를 지정한 수만큼 삭제합니다.")
     @commands.has_permissions(manage_messages=True) # '메시지 관리' 권한이 있는 사용자만 사용 가능
-    async def clear(self, ctx: commands.Context, amount: int):
-        """현재 채널의 메시지를 지정한 개수만큼 삭제합니다. (최대 100개)"""
-        if amount <= 0:
-            await ctx.send("1 이상의 숫자를 입력해주세요.", ephemeral=True, delete_after=5)
-            return
-        if amount > 100:
-            await ctx.send("한 번에 최대 100개의 메시지만 삭제할 수 있습니다.", ephemeral=True, delete_after=5)
-            return
+    async def clear(self, ctx: commands.Context, amount: commands.Range[int, 1, 100]):
+    # --- 핵심 수정 부분: defer와 followup을 사용하도록 변경 ---
 
-        # 명령어 메시지까지 포함하여 삭제하기 위해 amount + 1
-        deleted = await ctx.channel.purge(limit=amount + 1)
-        await ctx.send(f"✅ {len(deleted) - 1}개의 메시지를 성공적으로 삭제했습니다.", delete_after=5)
+        # 1. 슬래시 명령어로 호출되었는지 확인하고, 맞다면 defer()로 응답을 지연시킵니다.
+        # ephemeral=True로 설정하여 "생각 중..." 메시지가 명령어 사용자에게만 보이게 합니다.
+        if ctx.interaction:
+            await ctx.defer(ephemeral=True)
+
+        # 2. 메시지 삭제 작업을 수행합니다. 이 작업은 몇 초가 걸릴 수 있습니다.
+        # 명령어 자체 메시지도 삭제되므로 +1 하지 않습니다. defer 응답은 별개입니다.
+        deleted = await ctx.channel.purge(limit=amount)
+
+        # 3. 최종 결과를 상황에 맞는 응답 방식으로 보냅니다.
+        final_message = f"✅ {len(deleted)}개의 메시지를 성공적으로 삭제했습니다."
+        
+        if ctx.interaction:
+            # defer에 대한 후속 응답으로, 사용자에게만 보이는 메시지를 보냅니다.
+            await ctx.interaction.followup.send(embed=self.bot.embeds.success("청소 완료", final_message), ephemeral=True)
+        else:
+            # 접두사 명령어의 경우, 5초 뒤에 사라지는 메시지를 보냅니다.
+            await ctx.send(embed=self.bot.embeds.success("청소 완료", final_message), delete_after=5)
 
 
 async def setup(bot: commands.Bot):

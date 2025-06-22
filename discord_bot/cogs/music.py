@@ -5,27 +5,32 @@ import asyncio
 import yt_dlp
 import functools
 from typing import List
+import os
 
 # --- core 폴더의 유틸리티들을 임포트합니다. ---
 from core import check, embed, exceptions
+
+
 
 # yt-dlp 설정
 ydl_opts = {
     # opus 포맷을 최우선으로, 없으면 webm, 그 다음으로 bestaudio 순으로 선택
     'format': 'bestaudio[ext=opus]/bestaudio[ext=webm]/bestaudio/best',
     'noplaylist': True,
-    'default_search': 'auto',
+    'default_search': 'scsearch', # 사운드클라우드
+    'no_warnings': True,
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'opus', # 최종 코덱을 opus로 지정
-        'preferredquality': '192', # 비트레이트 품질
+        'preferredquality': '128', # 비트레이트 품질
     }],
     # ...
 }
 
+
 # FFmpeg 설정
 ffmpeg_opts = {
-    'options': '-vn -b:a 192k', # 오디오 비트레이트를 96kbps로 고정 (선택 사항)
+    'options': '-vn -b:a 128k', # 오디오 비트레이트를 128kbps로 고정 (선택 사항)
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 20M -analyzeduration 15M',
 }
 
@@ -98,9 +103,12 @@ class SongSelect(discord.ui.Select):
             await music_cog._queue_and_play(self.ctx, selected_url, interaction)
         
         # _queue_and_play에서 후속 응답을 처리하므로 여기서는 view만 비활성화
-        self.view.stop()
-        await self.view.message.edit(view=None)
+        if self.view: # view가 None이 아닐 때만 stop 및 edit 실행
+            self.view.stop()
+            if self.view.message:
+                await self.view.message.edit(view=None)
 
+                
 class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -163,25 +171,29 @@ class Music(commands.Cog):
     async def _queue_and_play(self, ctx: commands.Context, search_term: str, interaction: discord.Interaction = None):
         """노래 정보를 추출하고, 큐에 추가한 뒤, 필요하면 재생을 시작하는 내부 함수"""
         send_method = interaction.followup.send if interaction else ctx.send
-        # 슬래시 명령어일 경우에만 ephemeral 옵션을 사용
         send_kwargs = {'ephemeral': True} if interaction else {}
 
         try:
             loop = asyncio.get_running_loop()
+            
+            # 사운드클라우드는 라이브 스트림 구분이 필요 없으므로 로직을 간소화합니다.
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 blocking_task = functools.partial(ydl.extract_info, search_term, download=False)
                 info = await loop.run_in_executor(None, blocking_task)
             
             if 'entries' in info: info = info['entries'][0]
             title = info.get('title', 'Unknown Song')
+            source_url = info.get('webpage_url', search_term) # webpage_url을 사용
 
         except Exception as e:
             print(f"Error extracting info: {e}")
             embed = self.bot.embeds.error("정보 추출 실패", "노래의 상세 정보를 가져오는데 실패했습니다.")
             return await send_method(embed=embed, **send_kwargs)
 
-        song = {'source': info['webpage_url'], 'title': title, 'channel': ctx.channel, 'requester': ctx.author}
+        # 사운드클라우드는 is_live 개념이 없으므로 항상 False로 처리
+        song = {'source': source_url, 'title': title, 'channel': ctx.channel, 'requester': ctx.author, 'is_live': False}
         self.queue.append(song)
+        
         embed = self.bot.embeds.success("대기열 추가", f"'{title}'을(를) 대기열에 추가했습니다.")
         await send_method(embed=embed, **send_kwargs)
 
@@ -258,7 +270,7 @@ class Music(commands.Cog):
 
 
     # --- 검색(search) 명령어: UI View를 사용하도록 대폭 수정 ---
-    @commands.hybrid_command(name="검색", aliases=["search"], description="노래를 검색하고 목록에서 선택하여 재생합니다.")
+    @commands.hybrid_command(name="검색", aliases=["search"], description="사운드클라우드에서 노래를 검색하고 목록에서 선택하여 재생합니다.")
     async def search(self, ctx: commands.Context, *, query: str):
         if not ctx.voice_client:
             if ctx.author.voice:
@@ -275,7 +287,8 @@ class Music(commands.Cog):
         try:
             loop = asyncio.get_running_loop()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                blocking_task = functools.partial(ydl.extract_info, f"ytsearch10:{query}", download=False, process=False)
+                # 검색 대상을 ytsearch10 -> scsearch10 으로 변경
+                blocking_task = functools.partial(ydl.extract_info, f"scsearch10:{query}", download=False, process=False)
                 info = await loop.run_in_executor(None, blocking_task)
 
             if not info or not info.get('entries'):
@@ -286,45 +299,46 @@ class Music(commands.Cog):
         except Exception as e:
             return await send_method(embed=self.bot.embeds.error("검색 오류", str(e)), ephemeral=True if ctx.interaction else False)
 
+        # --- SearchView와 SongSelect는 사운드클라우드에서도 재사용 가능합니다 ---
+        # 다만, SelectOption에 들어갈 데이터를 사운드클라우드에 맞게 수정합니다.
+        
+        # 1. SearchView 클래스의 _create_select_options 메서드 수정
+        #    재생 횟수(view_count) -> 재생 시간(duration_string)으로 변경하거나 둘 다 표시
+        #    (이 부분은 Music(commands.Cog) 클래스 안에 있는 SearchView 클래스를 직접 수정해야 합니다)
+        
+        # 2. 이 search 함수 내에서 options를 만드는 로직 수정
         options = []
         for i, entry in enumerate(entries):
-            video_id = entry.get('id')
             title = entry.get('title', '이름 없는 항목')
-            if not video_id:
+            uploader = entry.get('uploader', 'Unknown Artist')
+            duration = entry.get('duration', 0)
+            # 초 단위의 duration을 '분:초' 형태로 변환
+            duration_str = f"{int(duration // 60)}:{int(duration % 60):02d}" if duration else "N/A"
+
+            # [핵심] URL을 직접 사용. 유튜브처럼 ID로 조립하지 않습니다.
+            url = entry.get('webpage_url')
+            if not url:
                 continue
             
-            url = f"https://www.youtube.com/watch?v={video_id}"
+            label = f"{i+1}. {title}"
             
-            # --- 핵심 수정 부분: 선택지(Option) 라벨에 번호를 추가하고 길이를 조절합니다. ---
-            prefix = f"{i+1}. "
-            # 100자 제한에 맞춰 제목 길이를 동적으로 계산
-            remaining_len = 100 - len(prefix)
-            
-            # 제목이 남은 공간보다 길면 '...'으로 축약
-            if len(title) > remaining_len:
-                truncated_title = title[:remaining_len - 3] + "..."
-            else:
-                truncated_title = title
-            
-            final_label = f"{prefix}{truncated_title}"
-            # -------------------------------------------------------------------------
-
+            # discord.SelectOption: 드롭다운의 각 항목
             options.append(discord.SelectOption(
-                label=final_label, # 번호가 포함된 최종 라벨을 사용
-                value=url,
-                description=f"ID: {video_id}"[:100]
+                label=label[:100],
+                description=f"아티스트: {uploader} | 길이: {duration_str}"[:100],
+                value=url # Select의 값으로 사운드클라우드 URL을 직접 사용
             ))
 
         if not options:
-            return await send_method(embed=self.bot.embeds.error("검색 실패", "재생 가능한 영상이 검색 결과에 없습니다."), ephemeral=True if ctx.interaction else False)
+            return await send_method(embed=self.bot.embeds.error("검색 실패", "재생 가능한 트랙이 검색 결과에 없습니다."), ephemeral=True if ctx.interaction else False)
 
         options = options[:25]
 
         view = discord.ui.View(timeout=60.0)
-        # SongSelect 클래스에 수정된 options를 전달합니다. SongSelect 클래스는 수정할 필요 없습니다.
+        # SongSelect 클래스는 수정 없이 재사용 가능
         view.add_item(SongSelect(ctx=ctx, options=options))
         
-        # --- (이하 View 관련 로직은 이전과 동일) ---
+        # (이하 View 관련 로직은 기존 코드와 거의 동일하게 사용)
         async def interaction_check(interaction: discord.Interaction) -> bool:
             if interaction.user.id != ctx.author.id:
                 await interaction.response.send_message("명령어를 실행한 사용자만 선택할 수 있습니다.", ephemeral=True)
@@ -340,15 +354,15 @@ class Music(commands.Cog):
 
         description = ""
         for i, option in enumerate(options):
-            description += f"**{i+1}.** {option.label.split('. ', 1)[1]}\n" # 번호를 제외한 제목만 가져오기
+            description += f"**{i+1}.** {option.label.split('. ', 1)[1]}\n"
         
-        initial_embed = self.bot.embeds.info("노래 검색 결과", description)
+        initial_embed = self.bot.embeds.info("사운드클라우드 검색 결과", description)
         
         first_playable_entry = next((e for e in entries if e.get('id')), None)
         if first_playable_entry and first_playable_entry.get('thumbnail'):
             initial_embed.set_image(url=first_playable_entry['thumbnail'])
         
-        initial_embed.set_footer(text="아래 메뉴에서 재생할 노래를 선택하세요.")
+        initial_embed.set_footer(text="아래 메뉴에서 재생할 트랙을 선택하세요.")
 
         message = await send_method(embed=initial_embed, view=view, ephemeral=True if ctx.interaction else False)
         
@@ -393,7 +407,7 @@ class Music(commands.Cog):
                     ctx.voice_client.play(volume_controlled_source, after=lambda e: self.on_song_end(ctx, e))
                     # ---------------------------------------------------------
 
-                    embed = self.bot.embed_generator.info("재생 시작", f"▶️ 이제 '{title}'을(를) 재생합니다.")
+                    embed = self.bot.embeds.info("재생 시작", f"▶️ 이제 '{title}'을(를) 재생합니다.")
                     embed.set_footer(text=f"요청: {requester.display_name}", icon_url=requester.avatar)
                     await channel.send(embed=embed)
 
@@ -410,18 +424,58 @@ class Music(commands.Cog):
         if self.queue:
             asyncio.run_coroutine_threadsafe(self.play_next_song(ctx), self.bot.loop)
 
-    @commands.hybrid_command(name="볼륨", help="볼륨을 조절합니다. (0~100)")
-    @check.is_bot_connected() # 수정: is_bot_playing -> is_bot_connected
-    async def volume(self, ctx, volume: int):
-        # 봇이 연결은 되어있지만, 소스(재생 파일)가 없는 경우를 확인
-        if not ctx.voice_client.source:
-             return await ctx.send(embed=self.bot.embeds.error("오류", "현재 재생 중인 노래가 없습니다."))
+    @commands.hybrid_group(name="볼륨", aliases=["volume"], description="봇의 볼륨 관련 설정을 관리합니다.")
+    async def volume(self, ctx: commands.Context):
+        """볼륨 명령어 그룹입니다. 서브 커맨드가 없으면 현재 상태를 보여줍니다."""
+        if ctx.invoked_subcommand is None:
+            await self.status(ctx)
 
-        if not (0 <= volume <= 100):
-            return await ctx.send(embed=self.bot.embeds.error("입력 오류", "볼륨은 0에서 100 사이의 값으로 설정해주세요."))
+    @volume.command(name="설정", description="개인별 볼륨 배율을 조절합니다 (기본값 100).")
+    async def volume_set(self, ctx: commands.Context, 배율: commands.Range[int, 0, 200]):
+        """기본 볼륨에 대한 배율을 조절합니다. (0~200%)"""
+        guild_id = ctx.guild.id
+        multiplier = 배율 / 100.0
+        self.user_volume_multipliers[guild_id] = multiplier
         
-        ctx.voice_client.source.volume = volume / 100
-        await ctx.send(embed=self.bot.embeds.info("볼륨 조절", f"🔊 볼륨을 {volume}%로 조절했습니다."))
+        # 현재 재생 중인 노래가 있다면, 새 배율을 즉시 적용
+        if ctx.voice_client and ctx.voice_client.source:
+            base_volume = self.base_volumes.get(guild_id, self.DEFAULT_BASE_VOLUME)
+            final_volume = base_volume * multiplier
+            ctx.voice_client.source.volume = final_volume
+            
+        await ctx.send(embed=self.bot.embeds.success("배율 설정 완료", f"🔊 개인 볼륨 배율을 **{배율}%**로 조절했습니다."), ephemeral=True)
+
+    @volume.command(name="기본", description="이 서버의 기본 볼륨을 조절합니다 (0~100).")
+    @commands.has_permissions(manage_guild=True) # '서버 관리' 권한이 있는 사람만 사용 가능
+    async def volume_base(self, ctx: commands.Context, 기본볼륨: commands.Range[int, 0, 100]):
+        """서버의 기본 시작 볼륨을 조절합니다. 모든 유저에게 적용됩니다."""
+        guild_id = ctx.guild.id
+        base_volume = 기본볼륨 / 100.0
+        self.base_volumes[guild_id] = base_volume
+        
+        # 현재 재생 중인 노래가 있다면, 새 기본 볼륨을 즉시 적용
+        if ctx.voice_client and ctx.voice_client.source:
+            user_multiplier = self.user_volume_multipliers.get(guild_id, 1.0)
+            final_volume = base_volume * user_multiplier
+            ctx.voice_client.source.volume = final_volume
+            
+        await ctx.send(embed=self.bot.embeds.success("기본 볼륨 설정 완료", f"🔊 이 서버의 기본 볼륨을 **{기본볼륨}%**로 조절했습니다."))
+
+    @volume.command(name="상태", description="현재 볼륨 설정을 확인합니다.")
+    async def status(self, ctx: commands.Context):
+        """현재 서버의 기본 볼륨과 개인 배율, 최종 볼륨을 보여줍니다."""
+        guild_id = ctx.guild.id
+        base_volume = self.base_volumes.get(guild_id, self.DEFAULT_BASE_VOLUME)
+        user_multiplier = self.user_volume_multipliers.get(guild_id, 1.0)
+        final_volume = base_volume * user_multiplier
+        
+        description = (
+            f"**기본 볼륨:** `{int(base_volume * 100)}%`\n"
+            f"**개인 배율:** `{int(user_multiplier * 100)}%`\n"
+            f"--------------------\n"
+            f"**최종 적용 볼륨:** `{int(final_volume * 100)}%`"
+        )
+        await ctx.send(embed=self.bot.embeds.info("현재 볼륨 설정", description))
 
     # pause 명령어는 '재생 중'일 때만 일시정지하는 것이 맞으므로, is_bot_playing()을 유지합니다.
     @commands.hybrid_command(name="일시정지", help="노래를 일시정지합니다.")
@@ -447,7 +501,7 @@ class Music(commands.Cog):
         self.queue = []
         if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
             ctx.voice_client.stop()
-        await ctx.send(embed=self.bot.embed_s.info("재생 중지", "⏹️ 노래를 중지하고 대기열을 초기화했습니다."))
+        await ctx.send(embed=self.bot.embeds.info("재생 중지", "⏹️ 노래를 중지하고 대기열을 초기화했습니다."))
 
     # skip 명령어는 '재생 중'인 곡을 건너뛰는 것이므로, is_bot_playing()을 유지합니다.
     @commands.hybrid_command(name="스킵", help="현재 노래를 건너뜁니다.")
