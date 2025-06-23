@@ -1,0 +1,22 @@
+# .gitignore
+
+
+# 백업 폴더
+backup/
+
+# 가상 환경
+.venv/
+venv/
+
+# 파이썬 캐시 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 민감 정보
+.env
+
+# VS Code 설정
+.vscode/
+

@@ -1,0 +1,46 @@
+<<<<<<< HEAD
+{
+    "370471198519328771": {
+        "level": 2,
+        "exp": 37,
+        "last_message_timestamp": 1750533940.167873,
+        "last_checkin_date": "2025-06-21"
+    },
+    "1318276478017994895": {
+        "370471198519328771": {
+            "level": 2,
+            "exp": 90,
+            "last_message_timestamp": 1750543129.420953,
+            "last_checkin_date": "2025-06-21"
+        },
+        "886680936882778153": {
+            "level": 2,
+            "exp": 135,
+            "last_message_timestamp": 1750543599.785209,
+            "last_checkin_date": "2025-06-21"
+        },
+        "403892388570857484": {
+            "level": 1,
+            "exp": 63,
+            "last_message_timestamp": 1750543013.253816,
+            "last_checkin_date": "1970-01-01"
+        }
+    },
+    "1379902917405970482": {
+        "370471198519328771": {
+            "level": 1,
+            "exp": 100,
+            "last_message_timestamp": 0,
+            "last_checkin_date": "2025-06-21"
+        }
+    }
+=======
+{
+    "370471198519328771": {
+        "level": 1,
+        "exp": 146,
+        "last_message_timestamp": 1750503824.531195,
+        "last_checkin_date": "2025-06-21"
+    }
+>>>>>>> aabde97d99d76c5e1a94c9edf0f55f94b6f778a4
+}
