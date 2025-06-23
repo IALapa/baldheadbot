@@ -212,31 +212,34 @@ class LevelingSystem(commands.Cog):
     @adjust.command(name="레벨설정", description="특정 사용자의 레벨을 설정합니다.")
     @check.is_admin()
     async def set_level(self, ctx: commands.Context, member: discord.Member, level: int):
-        if level <= 0: await ctx.send(embed=self.bot.embeds.error("입력 오류", "레벨은 1 이상이어야 합니다."), ephemeral=True); return
+        await ctx.defer(ephemeral=True)
+        if level <= 0: await ctx.interaction.followup.send(embed=self.bot.embeds.error("입력 오류", "레벨은 1 이상이어야 합니다."), ephemeral=True); return
         #-- 수정된 부분: 해당 멤버가 속한 서버의 데이터 수정
         data = await self.get_user_data(member.guild.id, member.id)
         data['level'] = level; data['exp'] = 0; await self.save_user_data()
-        await ctx.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님의 레벨을 **{level}** (으)로 설정했습니다."), ephemeral=True)
+        await ctx.interaction.followup.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님의 레벨을 **{level}** (으)로 설정했습니다."), ephemeral=True)
 
     @adjust.command(name="경험치설정", description="특정 사용자의 경험치를 설정합니다.")
     @check.is_admin()
     async def set_exp(self, ctx: commands.Context, member: discord.Member, exp: int):
-        if exp < 0: await ctx.send(embed=self.bot.embeds.error("입력 오류", "경험치는 0 이상이어야 합니다."), ephemeral=True); return
+        await ctx.defer(ephemeral=True)
+        if exp < 0: await ctx.interaction.followup.send(embed=self.bot.embeds.error("입력 오류", "경험치는 0 이상이어야 합니다."), ephemeral=True); return
         data = await self.get_user_data(member.guild.id, member.id)
         data['exp'] = exp; await self.save_user_data()
         await self.grant_exp(member, 0, channel=ctx.channel)
-        await ctx.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님의 경험치를 **{exp}** (으)로 설정했습니다."), ephemeral=True)
+        await ctx.interaction.followup.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님의 경험치를 **{exp}** (으)로 설정했습니다."), ephemeral=True)
 
     @adjust.command(name="경험치추가", description="특정 사용자에게 경험치를 추가하거나 빼줍니다.")
     @check.is_admin()
     async def add_exp(self, ctx: commands.Context, member: discord.Member, amount: int):
+        await ctx.defer(ephemeral=True)
         if amount > 0: await self.grant_exp(member, amount, channel=ctx.channel)
         else:
             data = await self.get_user_data(member.guild.id, member.id)
             data['exp'] += amount
             if data['exp'] < 0: data['exp'] = 0
             await self.save_user_data()
-        await ctx.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님에게 경험치 **{amount}**을(를) 적용했습니다."), ephemeral=True)
+        await ctx.interaction.followup.send(embed=self.bot.embeds.success("작업 완료", f"{member.mention}님에게 경험치 **{amount}**을(를) 적용했습니다."), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
