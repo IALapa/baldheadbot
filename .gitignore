@@ -1,0 +1,28 @@
+# .gitignore
+
+
+# 백업 폴더
+backup/
+
+# 가상 환경
+.venv/
+venv/
+
+# 파이썬 캐시 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 민감 정보
+.env
+discord_bot/user_data.json
+
+# 타자 문장들
+discord_bot/data/taja_sentences.json
+
+# VS Code 설정
+.vscode/
+
+
+
