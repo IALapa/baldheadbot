@@ -141,6 +141,7 @@ python discord_bot/bot.py
     │   │   ├── music.py
     │   │   ├── tts_commands.py
     │   │   └── emoji_commands.py
+    │   │   └── taja_game.py
     │   ├── core/
     │   │   ├── init.py
     │   │   ├── check.py
