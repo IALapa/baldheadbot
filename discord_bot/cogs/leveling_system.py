@@ -207,7 +207,8 @@ class LevelingSystem(commands.Cog):
     @check.is_admin()
     async def adjust(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send(embed=self.bot.embeds.error("명령어 오류", "사용할 하위 명령어를 입력해주세요."), ephemeral=True)
+            await ctx.defer(ephemeral=True)
+            await ctx.interaction.followup.send(embed=self.bot.embeds.error("명령어 오류", "사용할 하위 명령어를 입력해주세요."), ephemeral=True)
 
     @adjust.command(name="레벨설정", description="특정 사용자의 레벨을 설정합니다.")
     @check.is_admin()
