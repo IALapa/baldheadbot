@@ -78,10 +78,10 @@
 ### 4. requirements.txt 파일 생성
 프로젝트에 필요한 라이브러리 목록입니다. 아래 내용을 `requirements.txt` 파일에 저장하세요.
 
-    discord.py>=2.3.2
+    discord.py>=2.5.2
     python-dotenv>=1.0.0
-    yt-dlp>=2023.12.30
-    gTTS>=2.5.1
+    yt-dlp>=2025.06.09
+    gTTS>=2.5.4
     PyNaCl>=1.5.0
     
 ## 🚀 봇 실행 (Running the Bot)
@@ -141,6 +141,7 @@ python discord_bot/bot.py
     │   │   ├── music.py
     │   │   ├── tts_commands.py
     │   │   └── emoji_commands.py
+    │   │   └── taja_game.py
     │   ├── core/
     │   │   ├── init.py
     │   │   ├── check.py
