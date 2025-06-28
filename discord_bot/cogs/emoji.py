@@ -1,11 +1,13 @@
 import discord
 from discord.ext import commands
 import re
+from core.embed import EmbedGenerator
 
 class EmojiCommands(commands.Cog):
     """이모지 확대 및 검색과 관련된 명령어들을 포함하는 Cog입니다."""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.embed_generator = EmbedGenerator(bot) # EmbedGenerator 인스턴스 초기화
 
     # --- 자동 이모지 확대 기능 (명령어 없음) ---
     @commands.Cog.listener()
@@ -14,23 +16,21 @@ class EmojiCommands(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        # 메시지에서 커스텀 이모지 ID들을 추출 (예: <:name:id> 또는 <a:name:id>)
-        custom_emoji_ids = re.findall(r'<(a?):(\w+):(\d+)>', message.content)
+        # 메시지에서 커스텀 이모지 정보들을 추출 (예: <a:name:id> 또는 <:name:id>)
+        # group 1: 'a' (animated) or empty, group 2: name, group 3: id
+        custom_emojis_info = re.findall(r'<(a?):(\w+):(\d+)>', message.content)
 
-        # 메시지 내용이 오직 커스텀 이모지로만 구성되어 있는지 확인
-        # 메시지에서 이모지 부분을 제거했을 때 공백만 남아야 함
-        content_without_emojis = re.sub(r'<a?:\w+:\d+>', '', message.content).strip()
-        
-        # 메시지가 커스텀 이모지로만 이루어져 있고, 다른 텍스트가 없을 때만 실행
-        if custom_emoji_ids and not content_without_emojis:
+        # 메시지에 커스텀 이모지가 하나라도 포함되어 있다면 실행
+        if custom_emojis_info:
+            # 원본 메시지를 삭제하기 위해 봇에게 '메시지 관리' 권한이 필요합니다.
             try:
                 await message.delete()
             except discord.Forbidden:
-                # 권한이 없을 경우, 그냥 원본 메시지를 놔둡니다.
-                pass
+                pass # 권한이 없을 경우, 그냥 원본 메시지를 놔둡니다.
             except discord.NotFound:
-                # 메시지가 이미 삭제된 경우 등
-                pass
+                pass # 메시지가 이미 삭제된 경우 등
+            except Exception:
+                pass # 기타 삭제 오류
 
             # 각 이모지를 확대해서 전송
             for animated, name, emoji_id in custom_emojis_info:
@@ -38,12 +38,16 @@ class EmojiCommands(commands.Cog):
                 extension = "gif" if animated else "png"
                 emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{extension}"
                 
-                # embed = discord.Embed(color=discord.Color.blue()) # 이모지 정보가 없으므로 임베드 제목/설명은 제한적
-                embed = discord.Embed(title=f"'{name}' 이모지", color=discord.Color.blue()) # 이모지 이름 추가
-                embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
-                embed.set_image(url=emoji_url)
-                await message.channel.send(embed=embed)
-            return # 확대 기능 실행 후, 다른 로직은 중단
+                # EmbedGenerator의 info 메소드를 사용하여 임베드 생성
+                embed = self.embed_generator.info(title=f"'{name}' 이모지")
+                embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
+                # embed.set_image(url=emoji_url)
+                
+                try:
+                    await message.channel.send(embed=embed)
+                except Exception:
+                    pass # 임베드 전송 중 오류 발생 시 무시 (예: 권한 없음)
+            return
 
     # --- 외부 서버 이모지 불러오기 기능 (명령어) ---
     @commands.hybrid_command(name="이모지", description="다른 서버의 커스텀 이모지를 이름으로 찾아 보여줍니다.")
@@ -60,15 +64,20 @@ class EmojiCommands(commands.Cog):
                 break
         
         if found_emoji:
-            embed = discord.Embed(
+            # EmbedGenerator의 success 메소드를 사용하여 임베드 생성
+            embed = self.embed_generator.success(
                 title=f"'{found_emoji.name}' 이모지 발견!",
-                description=f"**서버:** {found_emoji.guild.name}",
-                color=discord.Color.green()
+                description=f"**서버:** {found_emoji.guild.name}"
             )
             embed.set_image(url=found_emoji.url)
             await ctx.send(embed=embed)
         else:
-            await ctx.send(f"❌ '{이름}' 이라는 이름의 이모지를 제가 속한 서버들에서 찾을 수 없어요.", ephemeral=True)
+            # EmbedGenerator의 error 메소드를 사용하여 임베드 생성
+            embed = self.embed_generator.error(
+                title="이모지를 찾을 수 없어요",
+                description=f"❌ '{이름}' 이라는 이름의 이모지를 제가 속한 서버들에서 찾을 수 없어요."
+            )
+            await ctx.send(embed=embed, ephemeral=True) # ephemeral=True는 명령어를 사용한 사용자에게만 메시지를 보냅니다.
 
 
 async def setup(bot: commands.Bot):

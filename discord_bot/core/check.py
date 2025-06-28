@@ -7,7 +7,7 @@ def is_admin():
     """관리자 역할을 가진 사용자만 사용할 수 있는지 확인하는 체크 함수"""
     async def predicate(ctx):
         # 'Admin' 또는 '관리자' 역할을 가지고 있는지 확인
-        admin_roles = ['Admin', '관리자', '이장', '마을회장', '청년회장']
+        admin_roles = ['Admin', '관리자', '이장', '마을회장', '청년회장', '주민대표']
         return any(role.name in admin_roles for role in ctx.author.roles)
     return commands.check(predicate)
 
