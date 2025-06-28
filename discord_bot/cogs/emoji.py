@@ -15,7 +15,7 @@ class EmojiCommands(commands.Cog):
             return
 
         # 메시지에서 커스텀 이모지 ID들을 추출 (예: <:name:id> 또는 <a:name:id>)
-        custom_emoji_ids = re.findall(r'<a?:\w+:(\d+)>', message.content)
+        custom_emoji_ids = re.findall(r'<(a?):(\w+):(\d+)>', message.content)
 
         # 메시지 내용이 오직 커스텀 이모지로만 구성되어 있는지 확인
         # 메시지에서 이모지 부분을 제거했을 때 공백만 남아야 함
@@ -33,13 +33,16 @@ class EmojiCommands(commands.Cog):
                 pass
 
             # 각 이모지를 확대해서 전송
-            for emoji_id in custom_emoji_ids:
-                emoji = self.bot.get_emoji(int(emoji_id))
-                if emoji:
-                    embed = discord.Embed(color=discord.Color.blue())
-                    embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
-                    embed.set_image(url=emoji.url)
-                    await message.channel.send(embed=embed)
+            for animated, name, emoji_id in custom_emojis_info:
+                # 이모지 URL 직접 구성
+                extension = "gif" if animated else "png"
+                emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{extension}"
+                
+                # embed = discord.Embed(color=discord.Color.blue()) # 이모지 정보가 없으므로 임베드 제목/설명은 제한적
+                embed = discord.Embed(title=f"'{name}' 이모지", color=discord.Color.blue()) # 이모지 이름 추가
+                embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
+                embed.set_image(url=emoji_url)
+                await message.channel.send(embed=embed)
             return # 확대 기능 실행 후, 다른 로직은 중단
 
     # --- 외부 서버 이모지 불러오기 기능 (명령어) ---
