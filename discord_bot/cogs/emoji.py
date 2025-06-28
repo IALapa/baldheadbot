@@ -23,30 +23,24 @@ class EmojiCommands(commands.Cog):
         
         # 메시지가 커스텀 이모지로만 이루어져 있고, 다른 텍스트가 없을 때만 실행
         if custom_emoji_ids and not content_without_emojis:
-            # 해당 서버(Guild)에 속한 이모지 ID 목록을 미리 만들어 둠
-            guild_emoji_ids = {str(e.id) for e in message.guild.emojis}
+            try:
+                await message.delete()
+            except discord.Forbidden:
+                # 권한이 없을 경우, 그냥 원본 메시지를 놔둡니다.
+                pass
+            except discord.NotFound:
+                # 메시지가 이미 삭제된 경우 등
+                pass
 
-            # 메시지에 포함된 이모지가 현재 서버의 이모지인지 확인
-            if all(emoji_id in guild_emoji_ids for emoji_id in custom_emoji_ids):
-                # 원본 메시지를 삭제하기 위해 봇에게 '메시지 관리' 권한이 필요합니다.
-                try:
-                    await message.delete()
-                except discord.Forbidden:
-                    # 권한이 없을 경우, 그냥 원본 메시지를 놔둡니다.
-                    pass
-                except discord.NotFound:
-                    # 메시지가 이미 삭제된 경우 등
-                    pass
-
-                # 각 이모지를 확대해서 전송
-                for emoji_id in custom_emoji_ids:
-                    emoji = self.bot.get_emoji(int(emoji_id))
-                    if emoji:
-                        embed = discord.Embed(color=discord.Color.blue())
-                        embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
-                        embed.set_image(url=emoji.url)
-                        await message.channel.send(embed=embed)
-                return # 확대 기능 실행 후, 다른 로직은 중단
+            # 각 이모지를 확대해서 전송
+            for emoji_id in custom_emoji_ids:
+                emoji = self.bot.get_emoji(int(emoji_id))
+                if emoji:
+                    embed = discord.Embed(color=discord.Color.blue())
+                    embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
+                    embed.set_image(url=emoji.url)
+                    await message.channel.send(embed=embed)
+            return # 확대 기능 실행 후, 다른 로직은 중단
 
     # --- 외부 서버 이모지 불러오기 기능 (명령어) ---
     @commands.hybrid_command(name="이모지", description="다른 서버의 커스텀 이모지를 이름으로 찾아 보여줍니다.")
