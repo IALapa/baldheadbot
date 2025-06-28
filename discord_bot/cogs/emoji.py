@@ -39,7 +39,8 @@ class EmojiCommands(commands.Cog):
                 extension = "gif" if animated else "png"
                 emoji_url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{extension}"
                 
-                embed = discord.Embed(title=f"'{name}' 이모지", color=discord.Color.blue())
+                # embed = discord.Embed(title=f"'{name}' 이모지", color=discord.Color.blue())
+                embed = self.embed_generator.info(title="")
                 embed.set_author(name=f"{message.author.display_name} 님의 이모지", icon_url=message.author.avatar)
                 embed.set_image(url=emoji_url)
                 
