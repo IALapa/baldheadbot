@@ -538,7 +538,8 @@ class Music(commands.Cog):
     @commands.hybrid_command(name="대기열", help="재생 대기열을 보여줍니다.")
     async def queue_info(self, ctx: commands.Context):
         """현재 재생 중인 노래와 재생 대기열을 번호와 함께 보여줍니다."""
-        if ctx.interaction:
+        is_slash_command = ctx.interaction is not None
+        if is_slash_command:
             await ctx.defer(ephemeral=True)
 
         if not ctx.voice_client or not (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()) and not self.queue:
@@ -562,7 +563,14 @@ class Music(commands.Cog):
                 song_list += f"**{i+1}.** {song['title']}\n"
             embed.add_field(name="다음 곡 목록", value=song_list, inline=False)
         
-        await ctx.send(embed=embed)
+        # 슬래시 명령어와 접두사 명령어의 응답 방식을 분리
+        if is_slash_command:
+            # 슬래시 명령어는 followup.send를 사용해야 합니다.
+            # ephemeral=True 옵션도 유지합니다.
+            await ctx.interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            # 접두사 명령어는 ctx.send를 사용합니다.
+            await ctx.send(embed=embed)
 
 
 async def setup(bot):
