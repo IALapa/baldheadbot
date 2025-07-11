@@ -243,6 +243,11 @@ class Music(commands.Cog):
         검색어 입력 시: 첫 결과를 대기열에 추가합니다.
         숫자 입력 시: 대기열의 해당 번호 노래를 즉시 재생합니다.
         """
+
+        if ctx.interaction:
+            await ctx.defer(ephemeral=True)
+
+
         if not ctx.voice_client:
             if ctx.author.voice:
                 # 사용자가 음성 채널에 있으면 자동으로 join
@@ -273,10 +278,12 @@ class Music(commands.Cog):
             await ctx.send(embed=self.bot.embeds.success("재생 목록 변경", f"대기열의 {index}번째 노래 '{song_to_play['title']}'을(를) 바로 재생합니다."))
             return # 번호 재생 로직은 여기서 종료
 
+        '''
         # --- 기존의 새 노래 추가 로직 ---
         # defer()가 필요하므로 슬래시/접두사 구분이 필요
         if ctx.interaction:
             await ctx.defer(ephemeral=True)
+        '''
         
         await self._queue_and_play(ctx, search, interaction=ctx.interaction)
 
