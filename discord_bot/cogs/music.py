@@ -538,6 +538,9 @@ class Music(commands.Cog):
     @commands.hybrid_command(name="대기열", help="재생 대기열을 보여줍니다.")
     async def queue_info(self, ctx: commands.Context):
         """현재 재생 중인 노래와 재생 대기열을 번호와 함께 보여줍니다."""
+        if ctx.interaction:
+            await ctx.defer(ephemeral=True)
+
         if not ctx.voice_client or not (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()) and not self.queue:
              return await ctx.send(embed=self.bot.embeds.info("대기열", "현재 재생 중인 노래와 대기열에 노래가 없습니다."))
 
