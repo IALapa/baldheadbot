@@ -16,7 +16,7 @@ from core import check, embed, exceptions
 ydl_opts = {
     # opus 포맷을 최우선으로, 없으면 webm, 그 다음으로 bestaudio 순으로 선택
     'format': 'bestaudio[ext=opus]/bestaudio[ext=webm]/bestaudio/best',
-    'noplaylist': True,
+    'noplaylist': False,
     'default_search': 'scsearch', # 사운드클라우드
     'no_warnings': True,
     'postprocessors': [{
@@ -176,27 +176,44 @@ class Music(commands.Cog):
         try:
             loop = asyncio.get_running_loop()
             
-            # 사운드클라우드는 라이브 스트림 구분이 필요 없으므로 로직을 간소화합니다.
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 blocking_task = functools.partial(ydl.extract_info, search_term, download=False)
                 info = await loop.run_in_executor(None, blocking_task)
             
-            if 'entries' in info: info = info['entries'][0]
-            title = info.get('title', 'Unknown Song')
-            source_url = info.get('webpage_url', search_term) # webpage_url을 사용
+            # --- 핵심 수정 부분 ---
+            # 플레이리스트인 경우 (여러 'entries'가 존재)
+            if 'entries' in info and info['entries']:
+                added_count = 0
+                for entry in info['entries']:
+                    # 각 entry에서 필요한 정보를 추출
+                    title = entry.get('title', 'Unknown Song')
+                    source_url = entry.get('webpage_url')
+                    if source_url:
+                        song = {'source': source_url, 'title': title, 'channel': ctx.channel, 'requester': ctx.author, 'is_live': False}
+                        self.queue.append(song)
+                        added_count += 1
+                
+                playlist_title = info.get('title', '이 플레이리스트')
+                embed = self.bot.embeds.success("플레이리스트 추가", f"'{playlist_title}'에서 **{added_count}개**의 노래를 대기열에 추가했습니다.")
+                await send_method(embed=embed, **send_kwargs)
+
+            # 단일 곡인 경우
+            else:
+                title = info.get('title', 'Unknown Song')
+                source_url = info.get('webpage_url', search_term)
+                
+                song = {'source': source_url, 'title': title, 'channel': ctx.channel, 'requester': ctx.author, 'is_live': False}
+                self.queue.append(song)
+                
+                embed = self.bot.embeds.success("대기열 추가", f"'{title}'을(를) 대기열에 추가했습니다.")
+                await send_method(embed=embed, **send_kwargs)
 
         except Exception as e:
             print(f"Error extracting info: {e}")
             embed = self.bot.embeds.error("정보 추출 실패", "노래의 상세 정보를 가져오는데 실패했습니다.")
             return await send_method(embed=embed, **send_kwargs)
 
-        # 사운드클라우드는 is_live 개념이 없으므로 항상 False로 처리
-        song = {'source': source_url, 'title': title, 'channel': ctx.channel, 'requester': ctx.author, 'is_live': False}
-        self.queue.append(song)
-        
-        embed = self.bot.embeds.success("대기열 추가", f"'{title}'을(를) 대기열에 추가했습니다.")
-        await send_method(embed=embed, **send_kwargs)
-
+        # 노래가 재생 중이 아닐 때만 재생 시작
         if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
             await self.play_next_song(ctx)
 
