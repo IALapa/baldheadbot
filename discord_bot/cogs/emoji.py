@@ -18,11 +18,11 @@ class EmojiCommands(commands.Cog):
         # group 1: 'a' (animated) or empty, group 2: name, group 3: id
         custom_emojis_info = re.findall(r'<(a?):(\w+):(\d+)>', message.content)
 
-        # 메시지 내용이 오직 커스텀 이모지로만 구성되어 있는지 확인 (선택 사항)
-        # content_without_emojis = re.sub(r'<a?:\w+:\d+>', '', message.content).strip()
+        # 이모지를 제외한 순수 텍스트가 있는지 확인
+        content_without_emojis = re.sub(r'<a?:\w+:\d+>', '', message.content).strip()
         
-        # 메시지에 커스텀 이모지가 하나라도 포함되어 있다면 실행
-        if custom_emojis_info: # 이전 디버깅 시 변경했던 이 조건 그대로 유지
+        # 메시지에 커스텀 이모지가 있고, 다른 텍스트는 없는 경우에만 실행
+        if custom_emojis_info and not content_without_emojis:
             # 원본 메시지를 삭제하기 위해 봇에게 '메시지 관리' 권한이 필요합니다.
             try:
                 await message.delete()
